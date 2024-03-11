@@ -1,0 +1,133 @@
+# this script calculates the amount of artificial lighting which is needed
+# per m2 for a greenhouse using Lighting Plan approach.
+# input is the hourly surface radiation on a horizental surface (https://www.renewables.ninja/)
+# output is hourly lighting demand (coressponding electrical energy demand)
+# lighting demand is calculated based on following rule:
+# from 2am to 6pm or 8pm whenever natural light is below 200W/m2 or 300W/m2, artificial
+# lighting will be turn on. The lighting month are from Sep. to March.
+# The best HPS technology is considered
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Parameters
+TC = 0.8  # Transparency Coefficient of covering materials (0.75-0.9)
+PAR = 0.45  # PAR to Global Horizontal Irradiance (0.35-55)
+Pmax = 150  # micromol/m2/s, Lighting Power (assumption LED greenhouse from Agroscope, otherwise less, e.g. 100)
+Light_Demand = 35  # mol/m2.d for Tomato, if the total daily integral reaches this value, the lamps are off for the rest of the day
+NL_min = 100  # W/m2, Minimum natural light limit in an hour
+
+# Efficacy (3-7 mol/kWh for HPS and 7-10.7 for LED)
+EF_LED = 10.8  # mol/kWh LED
+
+# Lighting Hour (15 hours plan)
+s_hour = 5
+e_hour = 19
+
+# Input Natural Lighting
+# Replace with the actual file path to your Excel data
+file_path = '/content/drive/MyDrive/for work/Greenhouses/OensingenWeather.xlsx'
+data = pd.read_excel(file_path, usecols='C', skiprows=4, header=None)
+Rad = data.values.squeeze()  # Global radiation on a horizontal surface W/m2
+
+# Reshape the data for hourly radiation
+Rad = Rad.reshape(365 , 24)  # W/m2 for each hour of the year
+# Calculate ALED_LED per hour for the entire year
+Pmax_1 = Pmax * 3600 / 1000000  # mol/m2.h
+#print(Rad_PAR_natural)
+# Initialize ALED_LED_per_hour array
+ALED_LED_per_hour = list()
+
+# Initialize daily lighting integral variables
+Natural_DLI = np.zeros(365)
+Artificial_DLI = np.zeros(365)
+Total_DLI = np.zeros(365)       # Natural_DLI + Artificial_DLI
+
+for i in range(365):
+    for j in range(24):
+        Natural_DLI[i] += Rad[i, j] * 4.6 * PAR * 3600 * TC / 1000000  # mol/day
+        if s_hour <= j <= e_hour and Rad[i, j] <= NL_min and Total_DLI[i] < Light_Demand:
+            AL = Pmax_1   # mol/h
+        else:
+            AL =   0      # mol/h
+        Artificial_DLI[i] += AL
+        Total_DLI[i] = Natural_DLI[i] + Artificial_DLI[i]
+
+    # Calculate ALED_LED for the hour based on AL and EF_LED
+        ALED_LED_per_hour.append(AL / EF_LED)   # kWh/m2.hour
+
+
+       # Print the results for the first week (168 hours)
+print("ALED_LED_per_hour for the first day:")
+print(ALED_LED_per_hour[:168])
+
+# plot ALED_LED_per_hour for the first week
+plt.figure(figsize=(15, 5))
+plt.bar(range(24), ALED_LED_per_hour[:24])
+plt.xlabel('Hour of the first day')
+plt.ylabel('ALED_LED_per_hour (kWh/m2.hour)')
+plt.title('Hourly Lighting Demand (LED) - First day')
+
+# plot ALED_LED_per_hour for the first week
+plt.figure(figsize=(15, 5))
+plt.bar(range(168), ALED_LED_per_hour[:168])
+plt.xlabel('Hour of the first week')
+plt.ylabel('ALED_LED_per_hour (kWh/m2.hour)')
+plt.title('Hourly Lighting Demand (LED) - First week')
+
+
+# Now, let's plot ALED_LED_per_hour for the full year
+plt.figure(figsize=(15, 5))
+plt.bar(range(8760), ALED_LED_per_hour)
+plt.xlabel('Hour of the Year')
+plt.ylabel('ALED_LED_per_hour (kWh/m2.hour)')
+plt.title('Hourly Lighting Demand (LED) - Full Year')
+plt.grid(True)
+plt.show()
+
+# Save ALED_LED_per_hour as a CSV file for the full year
+ALED_LED_data_per_hour = pd.DataFrame({'ALED_LED_per_hour': ALED_LED_per_hour})
+ALED_LED_data_per_hour.to_csv('ALED_LED_per_hour_full_year.csv', index=False)
+
+# Download the CSV file for the full year to your local machine
+'''from google.colab import files
+files.download('ALED_LED_per_hour_full_year.csv')'''
+
+
+# Initialize daily lighting integral variables
+Natural_DLI = np.zeros(365)
+Artificial_DLI = np.zeros(365)
+Total_DLI = np.zeros(365)       # Natural_DLI + Artificial_DLI
+Daily_Lighting_Demand = np.zeros(365)  # Daily lighting demand in kWh/m2/day
+
+for i in range(365):
+    daily_light_demand = 0  # Initialize daily lighting demand for this day
+
+    for j in range(24):
+        Natural_DLI[i] += Rad[i, j] * 4.6 * PAR * 3600 * TC / 1000000  # mol/day
+        if s_hour <= j <= e_hour and Rad[i, j] <= NL_min and Total_DLI[i] < Light_Demand:
+            AL = Pmax_1   # mol/h
+        else:
+            AL = 0      # mol/h
+        Artificial_DLI[i] += AL
+        Total_DLI[i] = Natural_DLI[i] + Artificial_DLI[i]
+
+        # Accumulate the hourly demand for the daily demand
+        daily_light_demand += AL / EF_LED
+
+    # Store the daily demand for this day
+    Daily_Lighting_Demand[i] = daily_light_demand
+
+# Plot the daily lighting demand for the entire year
+plt.figure(figsize=(15, 5))
+plt.plot(range(1, 366), Daily_Lighting_Demand)
+plt.xlabel('Day of the Year')
+plt.ylabel('Daily Lighting Demand (kWh/m2/day)')
+plt.title('Daily Lighting Demand (LED) - Full Year')
+plt.grid(True)
+plt.show()
+
