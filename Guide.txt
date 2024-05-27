@@ -1,0 +1,7 @@
+1) Make sure you are connected to the Internet to run the Python code "Hourly_EnergyDemand_Calculator.py".
+
+2) Get the "token" related to your account from the Renewable Ninja website and replace it in the code(after registration).
+
+**Important note:
+3) Please make sure the "Carbon footprint.xlsx" Excel file is available to use the 
+Python code :"CultivationPeriod_Enegydemand_Calculator.py", otherwise you won't get the monthly carbon footprint results.
